@@ -2,7 +2,7 @@
 
 # This script talks to a dCache webdav door to obtain a share link
 # (using Macaroons, see https://www.dcache.org/manuals/workshop-2017-05-29-Umea/000-Final/anupam_macaroons_v02.pdf )
-# Thanks to Paul Millar for providing examples.
+# Thanks to Paul Millar for providing info and examples.
 #
 # Changes:
 # 2018-06-22 - Onno - Initial version
