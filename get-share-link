@@ -1,0 +1,138 @@
+#!/bin/bash
+
+# This script talks to a dCache webdav door to obtain a share link
+# (using Macaroons, see https://www.dcache.org/manuals/workshop-2017-05-29-Umea/000-Final/anupam_macaroons_v02.pdf )
+# Thanks to Paul Millar for providing examples.
+#
+# Changes:
+# 2018-06-22 - Onno - Initial version
+
+usage() {
+  cat <<-EOF
+	Obtains a share link from a dCache webdav door using Macaroons.
+	Usage: $0 [options...]
+	Options are:
+	  --url <url>
+	  --proxy              - Use proxy specified in X509_USER_PROXY
+	  --user <username>    - Username/password authentication
+	  --permissions <list> - Comma separated list of allowed activities
+	                         DOWNLOAD,UPLOAD,DELETE,MANAGE,LIST,
+	                         READ_METADATA,UPDATE_METADATA
+	  --duration           - Duration that the link will be valid, in ISO8601 format
+	                         See https://en.wikipedia.org/wiki/ISO_8601#Durations
+	
+	Examples:
+	  $0 --url https://my-dcache-server.org/users/homer/disk-shared/ --user homer
+	  $0 --url https://my-dcache-server.org:2882/users/homer/disk-shared/ --proxy --duration P14D
+	EOF
+  exit 1
+}
+
+path=
+activity=
+user=
+proxy=false
+duration=P7D  # Default: 7 days
+debug=false
+
+while [ $# -gt 0 ] ; do
+  case "$1" in
+    --url )
+      url="$2"
+      shift 2
+      ;;
+    --user )
+      user=$2
+      shift 2
+      ;;
+    --proxy )
+      proxy=true
+      shift
+      ;;
+    --permissions )
+      activity=$2
+      shift 2
+      ;;
+    --duration )
+      duration=$2
+      shift 2
+      ;;
+    --debug )
+      debug=true
+      shift 1
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+server=$(echo "$url" | egrep -o 'https://[^/]+/')
+dir=$(echo "$url" | sed -e 's#https://[^/]\+##')
+if [ -z "$dir" ] ; then
+  dir=/
+fi
+
+if [ -z "$server" ] ; then
+  echo "Please include the server in '--url'." 1>&2
+  exit 1
+fi
+
+if [ -z "$activity" ] ; then
+  activity=DOWNLOAD,LIST
+fi
+
+if $proxy ; then
+  authn="-E $X509_USER_PROXY"
+else
+  if [ -z "$user" ] ; then
+    echo "Please specify --proxy, or specify a username with --user." 1>&2
+    exit 1
+  fi
+  authn="-u $user"
+fi
+
+if ! echo "$duration" | grep --silent --perl-regex '^P(?!$)(\d+Y)?(\d+M)?(\d+W)?(\d+D)?(T(?=\d+[HMS])(\d+H)?(\d+M)?(\d+S)?)?$' ; then
+  echo "Duration should be in ISO8601 duration format. Examples: PT5M (5 minutes), P1Y2M (1 year and 2 months)" 1>&2
+  exit 1
+fi
+
+read -r -d '' json_request <<EOF
+{
+  "caveats" : ["path:$dir", "activity:$activity"], 
+  "validity" : "$duration"
+}
+EOF
+
+if $debug ; then
+  echo "JSON input:"
+  echo "$json_request"
+  echo
+fi
+
+result=$(curl --silent \
+              $authn \
+              -X POST -H 'Content-Type: application/macaroon-request' \
+              -d "$json_request" \
+              $server )
+
+if ! echo "$result" | grep --silent "targetWithMacaroon" ; then
+  {
+    echo "ERROR: could not get share link from $server."
+    # Show output from server in the nicest way possible
+    if [ -x "$(command -v html2text)" ]; then
+      echo "$result" | html2text
+    else
+      echo "$result"
+    fi
+  }  1>&2
+  exit 1
+fi
+
+if $debug ; then
+  echo "JSON output:"
+  echo "$result"
+  echo
+fi
+
+echo "$result" | jq -r '.uri.targetWithMacaroon'
