@@ -6,6 +6,7 @@
 #
 # Changes:
 # 2018-06-22 - Onno - Initial version
+# 2018-06-22 - Onno - Added --chroot option
 
 usage() {
   cat <<-EOF
@@ -13,6 +14,7 @@ usage() {
 	Usage: $0 [options...]
 	Options are:
 	  --url <url>
+	  --chroot             - Make specified path the root diectory, hiding upper dirs
 	  --proxy              - Use proxy specified in X509_USER_PROXY
 	  --user <username>    - Username/password authentication
 	  --permissions <list> - Comma separated list of allowed activities
@@ -28,7 +30,8 @@ usage() {
   exit 1
 }
 
-path=
+url=
+path_or_root="path"
 activity=
 user=
 proxy=false
@@ -41,8 +44,13 @@ while [ $# -gt 0 ] ; do
       url="$2"
       shift 2
       ;;
+    --chroot )
+      path_or_root="root"
+      shift
+      ;;
     --user )
       user=$2
+      proxy=false
       shift 2
       ;;
     --proxy )
@@ -66,6 +74,15 @@ while [ $# -gt 0 ] ; do
       ;;
   esac
 done
+
+if [ -z "$url" ] ; then
+  usage
+fi
+
+if [ -n "$user" -a "$proxy" == "true" ] ; then
+  echo "ERROR: you can't specify both --user and --proxy." 1>&2
+  exit 1
+fi
 
 server=$(echo "$url" | egrep -o 'https://[^/]+/')
 dir=$(echo "$url" | sed -e 's#https://[^/]\+##')
@@ -99,7 +116,7 @@ fi
 
 read -r -d '' json_request <<EOF
 {
-  "caveats" : ["path:$dir", "activity:$activity"], 
+  "caveats" : ["$path_or_root:$dir", "activity:$activity"], 
   "validity" : "$duration"
 }
 EOF
