@@ -7,6 +7,7 @@
 # Changes:
 # 2018-06-22 - Onno - Initial version
 # 2018-06-22 - Onno - Added --chroot option
+# 2018-06-25 - Onno - Fixed X509 authentication; adding curl command to debug output
 
 usage() {
   cat <<-EOF
@@ -32,7 +33,7 @@ usage() {
 
 url=
 path_or_root="path"
-activity=
+activity=DOWNLOAD,LIST
 user=
 proxy=false
 duration=P7D  # Default: 7 days
@@ -95,12 +96,12 @@ if [ -z "$server" ] ; then
   exit 1
 fi
 
-if [ -z "$activity" ] ; then
-  activity=DOWNLOAD,LIST
-fi
-
 if $proxy ; then
-  authn="-E $X509_USER_PROXY"
+  # Check if the proxy is still valid; if not, exit after the error message.
+  if [ -x "$(command -v voms-proxy-info)" ]; then
+    voms-proxy-info --exists 1>&2 || exit 1
+  fi
+  authn="--capath /etc/grid-security/certificates/ --cert $X509_USER_PROXY --cacert $X509_USER_PROXY"
 else
   if [ -z "$user" ] ; then
     echo "Please specify --proxy, or specify a username with --user." 1>&2
@@ -125,7 +126,14 @@ if $debug ; then
   echo "JSON input:"
   echo "$json_request"
   echo
+  echo "Curl command:"
+  echo "curl --silent " \
+            "$authn " \
+            "-X POST -H 'Content-Type: application/macaroon-request' " \
+            "-d \'$json_request\' " \
+            "$server "
 fi
+
 
 result=$(curl --silent \
               $authn \
