@@ -146,16 +146,16 @@ case $output in
     ;;
   rclone )
     if [ ! -x "$(command -v rclone)" ]; then
-      echo 'rclone not found in $PATH.'
+      echo 'rclone not found in $PATH.' 1>&2
       exit 1
     fi
     if [ -z "$remote_name" ] ; then
-      echo "If output is rclone, please specify a name for the remote."
+      echo "If output is rclone, please specify a name for the remote." 1>&2
       exit 1
     fi
     ;;
   * )
-    echo "Unrecognised output format '$output'."
+    echo "Unrecognised output format '$output'." 1>&2
     exit 1
 esac
 
@@ -251,6 +251,6 @@ case $output in
     echo "rclone --config=$remote_name.conf ls $remote_name:"
     ;;
   * )
-    echo "Unrecognised output format '$output'."
+    echo "Unrecognised output format '$output'." 1>&2
     exit 1
 esac
