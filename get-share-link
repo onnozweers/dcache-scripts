@@ -8,6 +8,7 @@
 # 2018-06-22 - Onno - Initial version
 # 2018-06-22 - Onno - Added --chroot option
 # 2018-06-25 - Onno - Fixed X509 authentication; adding curl command to debug output
+# 2018-07-03 - Onno - Added output options (macaroon, curl, rclone); added disclaimer
 
 usage() {
   cat <<-EOF
@@ -15,28 +16,39 @@ usage() {
 	Usage: $0 [options...]
 	Options are:
 	  --url <url>
-	  --chroot             - Make specified path the root diectory, hiding upper dirs
-	  --proxy              - Use proxy specified in X509_USER_PROXY
-	  --user <username>    - Username/password authentication
-	  --permissions <list> - Comma separated list of allowed activities
-	                         DOWNLOAD,UPLOAD,DELETE,MANAGE,LIST,
-	                         READ_METADATA,UPDATE_METADATA
-	  --duration           - Duration that the link will be valid, in ISO8601 format
-	                         See https://en.wikipedia.org/wiki/ISO_8601#Durations
+	  --chroot               - Make specified path the root diectory, hiding upper dirs
+	  --proxy                - Use proxy specified in X509_USER_PROXY
+	  --user <username>      - Username/password authentication
+	  --permissions <list>   - Comma separated list of allowed activities
+	                           DOWNLOAD,UPLOAD,DELETE,MANAGE,LIST,
+	                           READ_METADATA,UPDATE_METADATA
+	  --duration             - Duration that the link will be valid, in ISO8601 format
+	                           See https://en.wikipedia.org/wiki/ISO_8601#Durations
+	                           The duration may be limited by the server.
+	  --output link          - Print a link that anyone can open in a browser.
+	  --output macaroon      - Print authentication token only.
+	  --output curl          - Print curl command(s) to use the data.
+	  --output rclone <name> - Save an rclone config file, <name>.conf.
+	                           You need rclone v1.42-012-gfa051ff9 or newer to use it.
 	
 	Examples:
 	  $0 --url https://my-dcache-server.org/users/homer/disk-shared/ --user homer
 	  $0 --url https://my-dcache-server.org:2882/users/homer/disk-shared/ --proxy --duration P14D
+	  $0 --url https://my-dcache-server.org:2882/users/homer/disk-shared/ --proxy --chroot --output rclone homers-share
+	
+	Disclaimer:
+	A macaroon is token that authorizes anyone who gets it. Send it through private channels (not email).
 	EOF
   exit 1
 }
 
 url=
-path_or_root="path"
+path_or_root='path'
 activity=DOWNLOAD,LIST
 user=
 proxy=false
 duration=P7D  # Default: 7 days
+output='link'
 debug=false
 
 while [ $# -gt 0 ] ; do
@@ -66,6 +78,15 @@ while [ $# -gt 0 ] ; do
       duration=$2
       shift 2
       ;;
+    --output )
+      output=$2
+      shift
+      if [ "$output" == "rclone" ] ; then
+        remote_name=$2
+        shift
+      fi
+      shift
+      ;;
     --debug )
       debug=true
       shift 1
@@ -75,6 +96,10 @@ while [ $# -gt 0 ] ; do
       ;;
   esac
 done
+
+#
+# Input checking.
+#
 
 if [ -z "$url" ] ; then
   usage
@@ -114,6 +139,29 @@ if ! echo "$duration" | grep --silent --perl-regex '^P(?!$)(\d+Y)?(\d+M)?(\d+W)?
   echo "Duration should be in ISO8601 duration format. Examples: PT5M (5 minutes), P1Y2M (1 year and 2 months)" 1>&2
   exit 1
 fi
+
+case $output in
+  link|macaroon|curl )
+    # output format OK
+    ;;
+  rclone )
+    if [ ! -x "$(command -v rclone)" ]; then
+      echo 'rclone not found in $PATH.'
+      exit 1
+    fi
+    if [ -z "$remote_name" ] ; then
+      echo "If output is rclone, please specify a name for the remote."
+      exit 1
+    fi
+    ;;
+  * )
+    echo "Unrecognised output format '$output'."
+    exit 1
+esac
+
+#
+#  End of input checking.
+#
 
 read -r -d '' json_request <<EOF
 {
@@ -160,4 +208,49 @@ if $debug ; then
   echo
 fi
 
-echo "$result" | jq -r '.uri.targetWithMacaroon'
+macaroon=$(echo "$result" | jq -r '.macaroon')
+link=$(echo "$result" | jq -r '.uri.targetWithMacaroon')
+
+case $output in
+  link )
+    # Show link that can be pasted in browser
+    echo "$link"
+    ;;
+  macaroon )
+    # Just the bare token, nothing else
+    echo "$macaroon"
+    ;;
+  curl )
+    # Show download and upload command with curl
+    if echo "$activity" | grep --silent -e 'DOWNLOAD' -e 'LIST' ; then
+      echo "Curl download/listing command:"
+      echo
+      echo "curl $link"
+      echo
+    fi
+    if echo "$activity" | grep --silent 'UPLOAD' ; then
+      echo "Curl upload command:"
+      echo
+      if [ "$path_or_root" = "root" ] ; then
+        echo "curl --header 'Authorization: BEARER $macaroon' --upload-file myfile $server"
+      else
+        echo "curl --header 'Authorization: BEARER $macaroon' --upload-file myfile $url"
+      fi
+      echo
+    fi
+    ;;
+  rclone )
+    echo "Creating rclone config file $remote_name.conf:"
+    echo
+    $debug && echo "rclone --config=$remote_name.conf config create $remote_name webdav url $server vendor other user '' password '' bearer_token $macaroon"
+    rclone --config=$remote_name.conf config create $remote_name webdav url $server vendor other user '' password '' bearer_token $macaroon
+    echo
+    echo "Send this file to the persons you want to share data with."
+    echo "They need rclone v1.42-012-gfa051ff9 or newer to access the data."
+    echo "Example command:"
+    echo "rclone --config=$remote_name.conf ls $remote_name:"
+    ;;
+  * )
+    echo "Unrecognised output format '$output'."
+    exit 1
+esac
