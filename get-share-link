@@ -9,6 +9,7 @@
 # 2018-06-22 - Onno - Added --chroot option
 # 2018-06-25 - Onno - Fixed X509 authentication; adding curl command to debug output
 # 2018-07-03 - Onno - Added output options (macaroon, curl, rclone); added disclaimer
+# 2018-07-10 - Onno - Added --ip option
 
 usage() {
   cat <<-EOF
@@ -25,6 +26,9 @@ usage() {
 	  --duration             - Duration that the link will be valid, in ISO8601 format
 	                           See https://en.wikipedia.org/wiki/ISO_8601#Durations
 	                           The duration may be limited by the server.
+	  --ip <subnet-list>     - Allow access from these addresses/subnets.
+	                           Multiple subnets may be specified, comma separated.
+	                           Don't forget IPv6.
 	  --output link          - Print a link that anyone can open in a browser.
 	  --output macaroon      - Print authentication token only.
 	  --output curl          - Print curl command(s) to use the data.
@@ -35,6 +39,7 @@ usage() {
 	  $0 --url https://my-dcache-server.org/users/homer/disk-shared/ --user homer
 	  $0 --url https://my-dcache-server.org:2882/users/homer/disk-shared/ --proxy --duration P14D
 	  $0 --url https://my-dcache-server.org:2882/users/homer/disk-shared/ --proxy --chroot --output rclone homers-share
+	  $0 --url https://my-dcache-server.org/users/homer/disk-shared/ --user homer --ip 145.100.0.0/16,2001:610:108::/48
 	
 	Disclaimer:
 	A macaroon is token that authorizes anyone who gets it. Send it through private channels (not email).
@@ -48,6 +53,7 @@ activity=DOWNLOAD,LIST
 user=
 proxy=false
 duration=P7D  # Default: 7 days
+ip=
 output='link'
 debug=false
 
@@ -76,6 +82,10 @@ while [ $# -gt 0 ] ; do
       ;;
     --duration )
       duration=$2
+      shift 2
+      ;;
+    --ip )
+      ip=$2
       shift 2
       ;;
     --output )
@@ -163,9 +173,15 @@ esac
 #  End of input checking.
 #
 
+if [ -n "$ip" ] ; then
+  ip_caveat=", \"ip:$ip\""
+else
+  ip_caveat=
+fi
+
 read -r -d '' json_request <<EOF
 {
-  "caveats" : ["$path_or_root:$dir", "activity:$activity"], 
+  "caveats"  : ["$path_or_root:$dir", "activity:$activity" $ip_caveat], 
   "validity" : "$duration"
 }
 EOF
