@@ -30,6 +30,9 @@ usage() {
 	                           Multiple subnets may be specified, comma separated.
 	                           Don't forget IPv6.
 	  --output link          - Print a link that anyone can open in a browser.
+	                           If you open the link in your browser, please do it in 
+	                           a new private window, to be certain you're authenticated
+	                           by the macaroon and not by x509 or username/password.
 	  --output macaroon      - Print authentication token only.
 	  --output curl          - Print curl command(s) to use the data.
 	  --output rclone <name> - Save an rclone config file, <name>.conf.
