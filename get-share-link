@@ -44,8 +44,9 @@ usage() {
 	  $0 --url https://my-dcache-server.org:2882/users/homer/disk-shared/ --proxy --chroot --output rclone homers-share
 	  $0 --url https://my-dcache-server.org/users/homer/disk-shared/ --user homer --ip 145.100.0.0/16,2001:610:108::/48
 	
-	Disclaimer:
+	Warning:
 	A macaroon is token that authorizes anyone who gets it. Send it through private channels (not email).
+	Add sufficient caveats to limit the risk of accidents or abuse.
 	EOF
   exit 1
 }
