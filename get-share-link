@@ -10,6 +10,7 @@
 # 2018-06-25 - Onno - Fixed X509 authentication; adding curl command to debug output
 # 2018-07-03 - Onno - Added output options (macaroon, curl, rclone); added disclaimer
 # 2018-07-10 - Onno - Added --ip option
+# 2018-09-07 - Onno - Adding deserialized macaroon to debug output
 
 usage() {
   cat <<-EOF
@@ -37,6 +38,7 @@ usage() {
 	  --output curl          - Print curl command(s) to use the data.
 	  --output rclone <name> - Save an rclone config file, <name>.conf.
 	                           You need rclone v1.42-012-gfa051ff9 or newer to use it.
+	  --debug                - Provide extra output to learn what's going on.
 	
 	Examples:
 	  $0 --url https://my-dcache-server.org/users/homer/disk-shared/ --user homer
@@ -56,7 +58,7 @@ path_or_root='path'
 activity=DOWNLOAD,LIST
 user=
 proxy=false
-duration=P7D  # Default: 7 days
+duration=PT12H  # Default: 12 hours
 ip=
 output='link'
 debug=false
@@ -213,7 +215,7 @@ if ! echo "$result" | grep --silent "targetWithMacaroon" ; then
   {
     echo "ERROR: could not get share link from $server."
     # Show output from server in the nicest way possible
-    if [ -x "$(command -v html2text)" ]; then
+    if [ -x html2text ]; then
       echo "$result" | html2text
     else
       echo "$result"
@@ -230,6 +232,16 @@ fi
 
 macaroon=$(echo "$result" | jq -r '.macaroon')
 link=$(echo "$result" | jq -r '.uri.targetWithMacaroon')
+
+if $debug ; then
+  if [ -x view-macaroon ] ; then
+    echo "=== View deserialized macaroon ==="
+    view-macaroon "$macaroon"
+    echo "=== End deserialized macaroon ==="
+    echo
+  fi
+fi
+
 
 case $output in
   link )
