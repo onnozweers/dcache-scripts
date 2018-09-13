@@ -165,7 +165,7 @@ case $output in
     # output format OK
     ;;
   rclone )
-    if [ ! -x "$(command -v rclone)" ]; then
+    if [ ! -x rclone ]; then
       echo 'rclone not found in $PATH.' 1>&2
       exit 1
     fi
