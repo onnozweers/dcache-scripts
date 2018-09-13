@@ -11,6 +11,7 @@
 # 2018-07-03 - Onno - Added output options (macaroon, curl, rclone); added disclaimer
 # 2018-07-10 - Onno - Added --ip option
 # 2018-09-07 - Onno - Adding deserialized macaroon to debug output
+# 2018-09-13 - Onno - Log macaroon properties in ~/macaroons.log, without signature
 
 usage() {
   cat <<-EOF
@@ -40,6 +41,9 @@ usage() {
 	                           You need rclone v1.42-012-gfa051ff9 or newer to use it.
 	  --debug                - Provide extra output to learn what's going on.
 	
+	Macaroon properties are logged in ~/macaroons.log.
+	Their signature is not logged to prevent theft.
+
 	Examples:
 	  $0 --url https://my-dcache-server.org/users/homer/disk-shared/ --user homer
 	  $0 --url https://my-dcache-server.org:2882/users/homer/disk-shared/ --proxy --duration P14D
@@ -233,6 +237,7 @@ fi
 macaroon=$(echo "$result" | jq -r '.macaroon')
 link=$(echo "$result" | jq -r '.uri.targetWithMacaroon')
 
+# Show contents of macaroon when --debug is specified
 if $debug ; then
   if [ -x view-macaroon ] ; then
     echo "=== View deserialized macaroon ==="
@@ -240,6 +245,16 @@ if $debug ; then
     echo "=== End deserialized macaroon ==="
     echo
   fi
+fi
+
+# Log macaroon properties in a (private) file; strip signature to prevent theft
+if [ -x view-macaroon ] ; then
+  {
+    echo "=== $(date) ==="
+    view-macaroon "$macaroon" | grep -v signature
+    echo -e "=====================================\n"
+  } >> ~/macaroons.log
+  chmod 600 ~/macaroons.log
 fi
 
 
