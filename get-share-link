@@ -12,6 +12,7 @@
 # 2018-07-10 - Onno - Added --ip option
 # 2018-09-07 - Onno - Adding deserialized macaroon to debug output
 # 2018-09-13 - Onno - Log macaroon properties in ~/macaroons.log, without signature
+# 2018-09-14 - Onno - Added maximum upload file size option
 
 usage() {
   cat <<-EOF
@@ -31,6 +32,7 @@ usage() {
 	  --ip <subnet-list>     - Allow access from these addresses/subnets.
 	                           Multiple subnets may be specified, comma separated.
 	                           Don't forget IPv6.
+	  --max-file-size        - Set a maximum file size for uploads. dCache 5 required.
 	  --output link          - Print a link that anyone can open in a browser.
 	                           If you open the link in your browser, please do it in 
 	                           a new private window, to be certain you're authenticated
@@ -66,6 +68,7 @@ duration=PT12H  # Default: 12 hours
 ip=
 output='link'
 debug=false
+max_file_size=
 
 while [ $# -gt 0 ] ; do
   case "$1" in
@@ -78,7 +81,7 @@ while [ $# -gt 0 ] ; do
       shift
       ;;
     --user )
-      user=$2
+      user="$2"
       proxy=false
       shift 2
       ;;
@@ -87,22 +90,26 @@ while [ $# -gt 0 ] ; do
       shift
       ;;
     --permissions )
-      activity=$2
+      activity="$2"
       shift 2
       ;;
     --duration )
-      duration=$2
+      duration="$2"
       shift 2
       ;;
     --ip )
-      ip=$2
+      ip="$2"
+      shift 2
+      ;;
+    --max-file-size )
+      max_file_size="$2"
       shift 2
       ;;
     --output )
-      output=$2
+      output="$2"
       shift
       if [ "$output" == "rclone" ] ; then
-        remote_name=$2
+        remote_name="$2"
         shift
       fi
       shift
@@ -143,7 +150,7 @@ fi
 
 if $proxy ; then
   # Check if the proxy is still valid; if not, exit after the error message.
-  if [ -x "$(command -v voms-proxy-info)" ]; then
+  if [ -x voms-proxy-info ]; then
     voms-proxy-info --exists 1>&2 || exit 1
   fi
   authn="--capath /etc/grid-security/certificates/ --cert $X509_USER_PROXY --cacert $X509_USER_PROXY"
@@ -189,9 +196,15 @@ else
   ip_caveat=
 fi
 
+if [ -n "$max_file_size" ] ; then
+  max_size_caveat=", \"max-upload:$max_file_size\""
+else
+  max_size_caveat=
+fi
+
 read -r -d '' json_request <<EOF
 {
-  "caveats"  : ["$path_or_root:$dir", "activity:$activity" $ip_caveat], 
+  "caveats"  : ["$path_or_root:$dir", "activity:$activity" $ip_caveat $max_size_caveat], 
   "validity" : "$duration"
 }
 EOF
