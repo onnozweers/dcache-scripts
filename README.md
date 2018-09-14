@@ -1,7 +1,7 @@
 dcache-scripts
 ==============
 
-Some small dCache scripts that add functionality to dCache.
+Some small scripts that add functionality to [dCache](https://www.dcache.org/).
 
 dcache-collect-debug-info.sh
 ----------------------------
