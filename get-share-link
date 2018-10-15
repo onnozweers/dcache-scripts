@@ -4,6 +4,12 @@
 # (using Macaroons, see https://www.dcache.org/manuals/workshop-2017-05-29-Umea/000-Final/anupam_macaroons_v02.pdf )
 # Thanks to Paul Millar for providing info and examples.
 #
+# Latest version available at:
+# https://github.com/onnozweers/dcache-scripts/blob/master/get-share-link
+#
+# Uses a script called view-macaroon, which is available here:
+# https://github.com/onnozweers/dcache-scripts/blob/master/view-macaroon
+#
 # Changes:
 # 2018-06-22 - Onno - Initial version
 # 2018-06-22 - Onno - Added --chroot option
