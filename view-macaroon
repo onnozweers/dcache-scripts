@@ -1,5 +1,7 @@
 #!/bin/python
 
+# Moved to https://github.com/sara-nl/GridScripts/blob/master/view-macaroon
+
 # This script decodes (or "deserializes") and prints a macaroon.
 # It uses pymacaroons, which can be installed with:
 # yum install python2-pip
