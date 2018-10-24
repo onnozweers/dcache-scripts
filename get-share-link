@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Moved to https://github.com/sara-nl/GridScripts/blob/master/get-macaroon
+
 # This script talks to a dCache webdav door to obtain a share link
 # (using Macaroons, see https://www.dcache.org/manuals/workshop-2017-05-29-Umea/000-Final/anupam_macaroons_v02.pdf )
 # Thanks to Paul Millar for providing info and examples.
