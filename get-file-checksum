@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# This script has moved to https://github.com/sara-nl/GridScripts/blob/master/get-file-checksum.
+
 # This script talks to a dCache webdav door to get the checksum(s) of a file.
 #
 # Changes:
